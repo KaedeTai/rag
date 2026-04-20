@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公司內部智能客服</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: #f0f2f5;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: #1a73e8;
+    color: white;
+    padding: 14px 20px;
+    font-size: 17px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+
+  #chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .msg {
+    max-width: 75%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    line-height: 1.6;
+    font-size: 15px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .msg.user {
+    background: #1a73e8;
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+
+  .msg.assistant {
+    background: white;
+    color: #222;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+
+  .msg.assistant.handover {
+    border: 1.5px solid #f57c00;
+    background: #fff8e1;
+  }
+
+  .sources {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #888;
+  }
+
+  .typing {
+    align-self: flex-start;
+    background: white;
+    padding: 10px 16px;
+    border-radius: 12px;
+    color: #888;
+    font-style: italic;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    display: none;
+  }
+
+  #input-area {
+    background: white;
+    border-top: 1px solid #e0e0e0;
+    padding: 14px 20px;
+    display: flex;
+    gap: 10px;
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  #input-area input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1.5px solid #ddd;
+    border-radius: 24px;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  #input-area input:focus {
+    border-color: #1a73e8;
+  }
+
+  #input-area button {
+    background: #1a73e8;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 24px;
+    font-size: 15px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  #input-area button:hover { background: #1557b0; }
+  #input-area button:disabled { background: #a0c4ff; cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+<header>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+  </svg>
+  公司內部智能客服
+</header>
+
+<div id="chat">
+  <div class="msg assistant">
+    你好！我是公司內部智能助理，可以回答關於公司政策、流程、產品等問題。
+    有任何疑問歡迎直接問我！
+  </div>
+</div>
+
+<div class="typing" id="typing">助理正在思考...</div>
+
+<div id="input-area">
+  <input id="msgInput" placeholder="輸入問題，按 Enter 發送..." autocomplete="off" autofocus />
+  <button id="sendBtn" onclick="sendMsg()">送出</button>
+</div>
+
+<script>
+  let sessionId = null;
+  const chat = document.getElementById("chat");
+  const input = document.getElementById("msgInput");
+  const typing = document.getElementById("typing");
+
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMsg();
+    }
+  });
+
+  async function sendMsg() {
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    appendMsg("user", text);
+
+    // Show typing
+    typing.style.display = "block";
+    chat.scrollTop = chat.scrollHeight;
+
+    try {
+      const form = new FormData();
+      form.append("question", text);
+      if (sessionId) form.append("session_id", sessionId);
+
+      const resp = await fetch("/api/chat", { method: "POST", body: form });
+      const data = await resp.json();
+
+      if (!sessionId) {
+        sessionId = data.session_id;
+        history.replaceState(null, "", "?s=" + sessionId);
+      }
+
+      typing.style.display = "none";
+
+      const cls = data.handover ? "assistant handover" : "assistant";
+      appendMsg("assistant", data.answer, cls);
+
+      if (data.sources && data.sources.length > 0) {
+        const srcDiv = document.createElement("div");
+        srcDiv.className = "sources";
+        srcDiv.textContent = "來源：" + data.sources.map(s => s.source).join("、");
+        chat.lastElementChild.appendChild(srcDiv);
+      }
+    } catch (e) {
+      typing.style.display = "none";
+      appendMsg("assistant", "抱歉，系統發生錯誤：" + e.message);
+    }
+  }
+
+  function appendMsg(role, text, className) {
+    const div = document.createElement("div");
+    div.className = "msg " + role + (className ? " " + className.replace("assistant ", "") : "");
+    div.textContent = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+</script>
+</body>
+</html>
