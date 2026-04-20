@@ -108,3 +108,18 @@ BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8450020208:AAFkPREJy4BWoyRkC4P3lZUeJf-oHEcDjQ8")
 ADMIN_TELEGRAM_ID  = os.getenv("ADMIN_TELEGRAM_ID", "574704148")
+
+# 敏感關鍵字清單，出現這些詞就轉給主管（不做 AI 回答）
+HUMAN_HANDOVER_KEYWORDS = [
+    "密碼", "信用卡", "帳號", "帳戶", "密文",
+    "法律", "律師", "訴訟", "報案", "報警",
+    "投資", "出金", "入金", "匯款", "轉帳",
+    "退款", "消費糾紛", "投訴",
+    "優惠券", "折扣碼", "兌換", "抽獎",
+    "如何加入", "如何購買", "直銷",
+    "要約", "要約邀請", "定型化契約",
+    "個資", "隱私", "個資法",
+    # 威脅/法律相關
+    "告", "起訴", "控告", "提告", "法院", "檢調", "消保官",
+    "申訴管道", "消費者保護",
+]
